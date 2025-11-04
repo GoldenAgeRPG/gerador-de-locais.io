@@ -26,10 +26,10 @@
                 cssLink: 'https://gaaaaaaaaabs.github.io/goldenagerepositor.io/locais.css',
             },
             tabs: [
-                { title: 'Descrição', description: '', cards: [{}, {}, {}, {}] }, // Padrão
-                { title: 'Sub-áreas', description: '', cards: [{}, {}, {}, {}] }, // Padrão
-                { title: 'Observação', description: '', cards: [{}, {}, {}, {}] }, // Padrão
-                { title: 'Missões Atuais', description: '', cards: [{}, {}, {}, {}] } // Padrão
+                { title: 'Descrição', description: '', cards: [] }, // Padrão
+                { title: 'Sub-áreas', description: '', cards: [] }, // Padrão
+                { title: 'Observação', description: '', cards: [] }, // Padrão
+                { title: 'Missões Atuais', description: '', cards: [] } // Padrão
             ]
         };
 
@@ -44,17 +44,32 @@
                 .trim();
         }
 
-        // Gera o HTML do card de informação (Info Card)
-        function generateInfoCard(card, index) {
+        // Gera o HTML do card de informação (Info Card) ou Mission Callout
+        function generateInfoCard(card, index, tabIndex) { 
             if (!card.title) return '';
-            // A ferramenta adiciona o BBCode
-            const linkTag = card.link ? `[url=${card.link}]${card.title}[/url]` : card.title;
-            return `
-                <div class="info-card">
-                    <div class="info-title">${linkTag}</div>
-                    <div class="info-content">${card.content || ''}</div>
-                </div>
-            `;
+            
+            const isMission = tabIndex === 3;
+            
+            if (isMission) {
+                // MISSION CALLOUT (loc-callout)
+                // O conteúdo do Mission Callout é formatado com quebras de linha
+                const contentHtml = card.content ? card.content.replace(/\n/g, '<br>') : '';
+                return `
+                    <div class="loc-callout">
+                        <p><strong>${card.title}</strong><br>
+                        ${contentHtml}</p>
+                    </div>
+                `;
+            } else {
+                // STANDARD INFO CARD (info-card)
+                const linkTag = card.link ? `[url=${card.link}]${card.title}[/url]` : card.title;
+                return `
+                    <div class="info-card">
+                        <div class="info-title">${linkTag}</div>
+                        <div class="info-content">${card.content || ''}</div>
+                    </div>
+                `;
+            }
         }
         
         // Gera o HTML do painel de uma aba
@@ -62,19 +77,124 @@
             const paneId = `loc-pane-${tabIndex + 1}`;
             
             // Reconstroi os Info Cards (apenas cards com título)
-            const infoCardsHtml = tab.cards.map((card, idx) => generateInfoCard(card, idx)).filter(Boolean).join('');
+            const infoCardsHtml = tab.cards.map((card, idx) => generateInfoCard(card, idx, tabIndex)).filter(Boolean).join('');
 
             // O replace da quebra de linha garante novos parágrafos no fórum
             const descriptionHtml = tab.description.split('\n').map(p => `<p>${p.trim()}</p>`).join('');
+            
+            // Missões Atuais (Tab 3) usam o infoCardsHtml diretamente sem o info-grid-2col para que os callouts se empilhem verticalmente.
+            const isMissionTab = tabIndex === 3;
 
             return `
                 <div class="tab-pane" id="${paneId}">
                     <div class="loc-content">
                         ${descriptionHtml}
-                        ${infoCardsHtml ? `<div class="info-grid-2col">${infoCardsHtml}</div>` : ''}
+                        ${!isMissionTab && infoCardsHtml ? `<div class="info-grid-2col">${infoCardsHtml}</div>` : infoCardsHtml}
                     </div>
                 </div>
             `;
+        }
+
+        // --- Funções de Gestão de Dados e UI ---
+        
+        // Renders the dynamic input fields for cards based on the current data model
+        function renderInputCards(tabIndex) {
+            const container = document.getElementById(`tab-${tabIndex}-cards`);
+            let html = '';
+            
+            // Garante que o Title e Description inputs reflitam o modelo de dados
+            document.getElementById(`tab-${tabIndex}-title`).value = data.tabs[tabIndex].title;
+            document.getElementById(`tab-${tabIndex}-description`).value = data.tabs[tabIndex].description;
+
+            // Gera Input Fields para cada Card
+            data.tabs[tabIndex].cards.forEach((card, j) => {
+                const isMission = tabIndex === 3;
+                const titlePlaceholder = isMission ? "Título da Missão (Ex: O Som do Metrô)" : "Título (Ex: Prédio Principal)";
+                const contentPlaceholder = isMission ? "Detalhes da Missão e Grau (Ex: Grau: Grau 2\nDetalhes: Três desaparecimentos...)" : "Conteúdo da descrição do card";
+                
+                // Remove link input para missões
+                const linkInput = !isMission ? 
+                    `<input type="text" id="tab-${tabIndex}-card-${j}-link" 
+                        placeholder="Link de destino (Opcional: https://...)" 
+                        class="w-full p-2 mb-2 text-sm bg-gray-800 border border-gray-600 rounded" 
+                        value="${card.link || ''}"
+                        oninput="updateCardData(${tabIndex}, ${j})">` : 
+                    '';
+
+                html += `
+                    <div class="p-3 bg-gray-700 rounded-lg info-card-input shadow-inner">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="font-bold text-sm text-highlight">${isMission ? 'Missão' : 'Card de Informação'} ${j + 1}</h4>
+                            <button type="button" onclick="removeCard(${tabIndex}, ${j})" class="text-red-400 hover:text-red-600 text-xs font-bold transition duration-200">
+                                Remover
+                            </button>
+                        </div>
+                        
+                        <input type="text" id="tab-${tabIndex}-card-${j}-title" 
+                            placeholder="${titlePlaceholder}" 
+                            class="w-full p-2 mb-2 text-sm bg-gray-800 border border-gray-600 rounded" 
+                            value="${card.title || ''}"
+                            oninput="updateCardData(${tabIndex}, ${j})">
+                        
+                        ${linkInput}
+                        
+                        <textarea id="tab-${tabIndex}-card-${j}-content" rows="2" 
+                            placeholder="${contentPlaceholder}" 
+                            class="w-full p-2 text-sm bg-gray-800 border border-gray-600 rounded"
+                            oninput="updateCardData(${tabIndex}, ${j})">${card.content || ''}</textarea>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            
+            // Add Card Button
+            const cardType = tabIndex === 3 ? 'Missão' : 'Card';
+            container.innerHTML += `
+                <button type="button" onclick="addCard(${tabIndex})" class="w-full p-3 bg-indigo-700 hover:bg-indigo-600 rounded-lg text-white font-bold transition duration-200 mt-4">
+                    + Adicionar ${cardType}
+                </button>
+            `;
+            
+            generateTemplate();
+        }
+
+        // Adds a new card to the data model and re-renders inputs
+        function addCard(tabIndex) {
+            data.tabs[tabIndex].cards.push({});
+            renderInputCards(tabIndex);
+        }
+
+        // Removes a card from the data model and re-renders inputs
+        function removeCard(tabIndex, cardIndex) {
+            data.tabs[tabIndex].cards.splice(cardIndex, 1);
+            renderInputCards(tabIndex);
+        }
+
+        // Updates data model when an input changes
+        function updateCardData(tabIndex, cardIndex) {
+            const card = data.tabs[tabIndex].cards[cardIndex];
+
+            card.title = document.getElementById(`tab-${tabIndex}-card-${cardIndex}-title`).value;
+            
+            const linkInput = document.getElementById(`tab-${tabIndex}-card-${cardIndex}-link`);
+            if (linkInput) {
+                card.link = linkInput.value;
+            }
+
+            card.content = document.getElementById(`tab-${tabIndex}-card-${cardIndex}-content`).value;
+            
+            generateTemplate();
+        }
+
+        function updateDescription(tabIndex) {
+             data.tabs[tabIndex].description = document.getElementById(`tab-${tab-${tabIndex}-description`).value;
+             generateTemplate();
+        }
+
+        function updateTabTitle(tabIndex) {
+             data.tabs[tabIndex].title = document.getElementById(`tab-${tabIndex}-title`).value;
+             generateTemplate();
         }
 
         // --- Função Principal de Geração ---
@@ -85,21 +205,9 @@
                 activeTabId = checkedInput.id;
             }
 
-            // 2. Coletar dados da UI
+            // 2. Coletar dados da UI (Apenas Main, Títulos e Descrições)
             data.main.title = document.getElementById('main-title').value;
             data.main.bannerUrl = document.getElementById('banner-url').value;
-            // data.main.cssLink é fixo no JS
-
-            for (let i = 0; i < 4; i++) {
-                data.tabs[i].title = document.getElementById(`tab-${i}-title`).value;
-                data.tabs[i].description = document.getElementById(`tab-${i}-description`).value;
-
-                for (let j = 0; j < 4; j++) {
-                    data.tabs[i].cards[j].title = document.getElementById(`tab-${i}-card-${j}-title`).value;
-                    data.tabs[i].cards[j].content = document.getElementById(`tab-${i}-card-${j}-content`).value;
-                    data.tabs[i].cards[j].link = document.getElementById(`tab-${i}-card-${j}-link`).value;
-                }
-            }
 
             // 3. Gerar o HTML
             const tabNavLabels = data.tabs.map((tab, i) => `<label class="tab-button" for="loc-tab-${i + 1}">${tab.title}</label>`).join('');
@@ -145,7 +253,7 @@
             });
         }
 
-        // --- Funções de UI ---
+        // --- Funções de Inicialização de UI ---
 
         function copyToClipboard() {
             const output = document.getElementById('output-code');
@@ -161,24 +269,18 @@
         function setupTabSwitching(tabCount) {
             const tabsContainer = document.getElementById('generator-tabs-container');
             const tabButtons = tabsContainer.querySelectorAll('button[data-tab]');
-            const tabContents = tabsContainer.querySelectorAll('[data-tab-content]');
-
-            // Define o estado inicial da aba principal (default para tab-0)
+            
             const initialTab = document.getElementById('tab-0-button');
             showTabContent('tab-0');
             initialTab.classList.add('bg-indigo-700', 'text-white');
             
-            tabButtons.forEach(button => {
+            tabButtons.forEach((button, i) => {
                 button.addEventListener('click', () => {
                     const targetTab = button.getAttribute('data-tab');
 
-                    // Remove classes de ativo de todos
                     tabButtons.forEach(btn => btn.classList.remove('bg-indigo-700', 'text-white'));
-                    tabContents.forEach(content => content.classList.add('hidden'));
-
-                    // Adiciona classe de ativo ao clicado
-                    button.classList.add('bg-indigo-700', 'text-white');
                     showTabContent(targetTab);
+                    button.classList.add('bg-indigo-700', 'text-white');
                 });
             });
         }
@@ -193,58 +295,62 @@
             }
         }
 
-        function createCardInputs(tabIndex) {
-            const container = document.getElementById(`tab-${tabIndex}-cards`);
-            for (let j = 0; j < 4; j++) {
-                container.innerHTML += `
-                    <div class="p-3 bg-gray-700 rounded-lg info-card-input shadow-inner">
-                        <h4 class="font-bold text-sm text-highlight mb-2">Card de Informação ${j + 1}</h4>
-                        <input type="text" id="tab-${tabIndex}-card-${j}-title" placeholder="Título (Ex: Sala de Feitiços)" class="w-full p-2 mb-2 text-sm bg-gray-800 border border-gray-600 rounded" oninput="generateTemplate()">
-                        <input type="text" id="tab-${tabIndex}-card-${j}-link" placeholder="Link de destino (Opcional: https://...)" class="w-full p-2 mb-2 text-sm bg-gray-800 border border-gray-600 rounded" oninput="generateTemplate()">
-                        <textarea id="tab-${tabIndex}-card-${j}-content" rows="2" placeholder="Conteúdo da descrição do card" class="w-full p-2 text-sm bg-gray-800 border border-gray-600 rounded" oninput="generateTemplate()"></textarea>
-                    </div>
-                `;
-            }
-        }
-
         // Inicialização
         window.onload = function() {
             // Inicializa a aba principal
             setupTabSwitching(5); 
             
-            // Inicializa os inputs dos cards para todas as 4 abas
-            for (let i = 0; i < 4; i++) {
-                createCardInputs(i);
+            // --- Inicialização de Dados de Exemplo ---
+            data.main.title = "Escola de Jujutsu de Tóquio";
+            data.main.bannerUrl = "https://i.pinimg.com/originals/a3/5d/01/a35d01bde94164b835342a973f7d4658.jpg";
+            
+            // ABA 0: DESCRIÇÃO
+            data.tabs[0].title = "Descrição";
+            data.tabs[0].description = "Este é o local principal. Descreva o ambiente, a atmosfera e o nível de risco Jujutsu. Use quebras de linha para novos parágrafos.";
+            data.tabs[0].cards = [
+                { title: "Nível de Risco", content: "Alto (Presença de Grau Especial)" }
+            ];
+
+            // ABA 1: SUB-ÁREAS
+            data.tabs[1].title = "Sub-áreas";
+            data.tabs[1].description = "Liste aqui as sub-áreas que compõem este local.";
+            data.tabs[1].cards = [
+                { title: "Prédio Principal", content: "Onde ocorrem as aulas teóricas.", link: "https://goldenagejjkrpg.forumeiros.com/u1" },
+                { title: "Dormitórios", content: "Alojamentos para os estudantes.", link: "https://goldenagejjkrpg.forumeiros.com/u1" }
+            ];
+
+            // ABA 2: OBSERVAÇÃO
+            data.tabs[2].title = "Observação";
+            data.tabs[2].description = "Use esta aba para NPCs fixos, Janelas, ou informações de alto sigilo.";
+            data.tabs[2].cards = [
+                 { title: "Satoru Gojo", content: "Professor do 1º Ano e o Feiticeiro mais forte." }
+            ];
+
+            // ABA 3: MISSÕES
+            data.tabs[3].title = "Missões Atuais";
+            data.tabs[3].description = "As seguintes missões e atividades estão disponíveis para os feiticeiros:"; 
+            data.tabs[3].cards = [
+                 { title: "MISSÃO: O Som do Metrô", content: "Grau: Grau 2\nDetalhes: Três desaparecimentos na linha Ginza. Investigar os túneis e exorcizar a fonte." }
+            ];
+
+
+            // Renderiza o input cards da aba ativa (0)
+            renderInputCards(0);
+
+            // Adiciona listeners para os campos de Título e Descrição de todas as abas
+            for(let i=0; i<4; i++){
+                document.getElementById(`tab-${i}-title`).addEventListener('input', () => updateTabTitle(i));
+                document.getElementById(`tab-${i}-description`).addEventListener('input', () => updateDescription(i));
             }
 
-            // --- Preenche valores iniciais (Padrões de template) ---
-            document.getElementById('main-title').value = "Escola de Jujutsu de Tóquio";
-            document.getElementById('banner-url').value = "https://i.pinimg.com/originals/a3/5d/01/a35d01bde94164b835342a973f7d4658.jpg";
-            
-            // Define o conteúdo inicial estrutural para a primeira aba (Descrição)
-            document.getElementById('tab-0-title').value = data.tabs[0].title;
-            document.getElementById('tab-0-description').value = "Este é o local principal. Descreva o ambiente, a atmosfera e o nível de risco Jujutsu. Use quebras de linha para novos parágrafos.";
-            document.getElementById('tab-0-card-0-title').value = "Exemplo de Ponto de Foco (Opcional)";
-            document.getElementById('tab-0-card-0-content').value = "Detalhe extra sobre a energia ou arquitetura do local.";
-
-            // Define os títulos das outras abas (Sub-áreas, Observação, Missões Atuais)
-            document.getElementById('tab-1-title').value = data.tabs[1].title;
-            document.getElementById('tab-1-description').placeholder = "Liste aqui as sub-áreas que compõem este local (Ex: Prédio Principal, Dormitórios).";
-
-            document.getElementById('tab-2-title').value = data.tabs[2].title;
-            document.getElementById('tab-2-description').placeholder = "Use esta aba para NPCs fixos, Janelas, ou informações de alto sigilo.";
-
-            document.getElementById('tab-3-title').value = data.tabs[3].title;
-            document.getElementById('tab-3-description').placeholder = "Use esta aba para missões ativas (Com Grau e Recompensa) ou para o callout padrão de 'Nenhuma missão ativa'.";
-            // --- Fim do Preenchimento Inicial ---
-
-            // Chama a geração inicial
-            generateTemplate();
-
-            // Adiciona listeners para atualizar o preview automaticamente ao clicar em uma aba de input
-            document.querySelectorAll('#generator-tabs-container button[data-tab]').forEach(button => {
-                button.addEventListener('click', generateTemplate);
+            // Adiciona listeners aos botões das abas para que renderizem os inputs corretos
+            document.querySelectorAll('#generator-tabs-container button[data-tab]').forEach((button, i) => {
+                button.addEventListener('click', () => {
+                    renderInputCards(i);
+                });
             });
+            
+            generateTemplate();
         };
     </script>
 </head>
@@ -287,32 +393,32 @@
                         <!-- Conteúdo da Aba 1 (Descrição) -->
                         <div id="tab-0-content" data-tab-content class="space-y-4 tab-content-container">
                             <h3 class="font-bold text-lg text-highlight">Configuração da Descrição</h3>
-                            <input type="text" id="tab-0-title" placeholder="Título da Aba (Padrão: Descrição)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="generateTemplate()">
-                            <textarea id="tab-0-description" rows="4" placeholder="Descrição Principal da Aba 1 (Use quebras de linha para novos parágrafos)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="generateTemplate()"></textarea>
+                            <input type="text" id="tab-0-title" placeholder="Título da Aba (Padrão: Descrição)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="updateTabTitle(0)">
+                            <textarea id="tab-0-description" rows="4" placeholder="Descrição Principal da Aba 1 (Use quebras de linha para novos parágrafos)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="updateDescription(0)"></textarea>
                             <div id="tab-0-cards" class="space-y-3"></div>
                         </div>
 
                         <!-- Conteúdo da Aba 2 (Sub-áreas) -->
                         <div id="tab-1-content" data-tab-content class="space-y-4 hidden tab-content-container">
                             <h3 class="font-bold text-lg text-highlight">Configuração das Sub-áreas</h3>
-                            <input type="text" id="tab-1-title" placeholder="Título da Aba (Padrão: Sub-áreas)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="generateTemplate()">
-                            <textarea id="tab-1-description" rows="4" placeholder="Descrição Principal da Aba 2 (Use quebras de linha para novos parágrafos)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="generateTemplate()"></textarea>
+                            <input type="text" id="tab-1-title" placeholder="Título da Aba (Padrão: Sub-áreas)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="updateTabTitle(1)">
+                            <textarea id="tab-1-description" rows="4" placeholder="Descrição Principal da Aba 2 (Use quebras de linha para novos parágrafos)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="updateDescription(1)"></textarea>
                             <div id="tab-1-cards" class="space-y-3"></div>
                         </div>
 
                         <!-- Conteúdo da Aba 3 (Observação) -->
                         <div id="tab-2-content" data-tab-content class="space-y-4 hidden tab-content-container">
                             <h3 class="font-bold text-lg text-highlight">Configuração da Observação</h3>
-                            <input type="text" id="tab-2-title" placeholder="Título da Aba (Padrão: Observação)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="generateTemplate()">
-                            <textarea id="tab-2-description" rows="4" placeholder="Descrição Principal da Aba 3 (Use quebras de linha para novos parágrafos)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="generateTemplate()"></textarea>
+                            <input type="text" id="tab-2-title" placeholder="Título da Aba (Padrão: Observação)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="updateTabTitle(2)">
+                            <textarea id="tab-2-description" rows="4" placeholder="Descrição Principal da Aba 3 (Use quebras de linha para novos parágrafos)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="updateDescription(2)"></textarea>
                             <div id="tab-2-cards" class="space-y-3"></div>
                         </div>
 
                         <!-- Conteúdo da Aba 4 (Missões Atuais) -->
                         <div id="tab-3-content" data-tab-content class="space-y-4 hidden tab-content-container">
                             <h3 class="font-bold text-lg text-highlight">Configuração das Missões Atuais</h3>
-                            <input type="text" id="tab-3-title" placeholder="Título da Aba (Padrão: Missões Atuais)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="generateTemplate()">
-                            <textarea id="tab-3-description" rows="4" placeholder="Descrição Principal da Aba 4 (Use quebras de linha para novos parágrafos)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="generateTemplate()"></textarea>
+                            <input type="text" id="tab-3-title" placeholder="Título da Aba (Padrão: Missões Atuais)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="updateTabTitle(3)">
+                            <textarea id="tab-3-description" rows="4" placeholder="Descrição Principal da Aba 4 (Use quebras de linha para novos parágrafos)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="updateDescription(3)"></textarea>
                             <div id="tab-3-cards" class="space-y-3"></div>
                         </div>
                     </div>
