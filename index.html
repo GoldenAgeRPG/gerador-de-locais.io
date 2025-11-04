@@ -84,11 +84,15 @@
             
             // Missões Atuais (Tab 3) usam o infoCardsHtml diretamente sem o info-grid-2col para que os callouts se empilhem verticalmente.
             const isMissionTab = tabIndex === 3;
+            const isDescTab = tabIndex === 0;
 
+            // Se for Descrição, usa a descrição principal; senão, usa apenas os cards
+            const contentBody = isDescTab ? descriptionHtml : '';
+            
             return `
                 <div class="tab-pane" id="${paneId}">
                     <div class="loc-content">
-                        ${descriptionHtml}
+                        ${contentBody}
                         ${!isMissionTab && infoCardsHtml ? `<div class="info-grid-2col">${infoCardsHtml}</div>` : infoCardsHtml}
                     </div>
                 </div>
@@ -104,7 +108,11 @@
             
             // Garante que o Title e Description inputs reflitam o modelo de dados
             document.getElementById(`tab-${tabIndex}-title`).value = data.tabs[tabIndex].title;
-            document.getElementById(`tab-${tabIndex}-description`).value = data.tabs[tabIndex].description;
+            
+            const descriptionInput = document.getElementById(`tab-${tabIndex}-description`);
+            if (descriptionInput) {
+                descriptionInput.value = data.tabs[tabIndex].description;
+            }
 
             // Gera Input Fields para cada Card
             data.tabs[tabIndex].cards.forEach((card, j) => {
@@ -187,11 +195,13 @@
             generateTemplate();
         }
 
+        // Função corrigida
         function updateDescription(tabIndex) {
-             data.tabs[tabIndex].description = document.getElementById(`tab-${tab-${tabIndex}-description`).value;
+             data.tabs[tabIndex].description = document.getElementById(`tab-${tabIndex}-description`).value;
              generateTemplate();
         }
-
+        
+        // Função corrigida
         function updateTabTitle(tabIndex) {
              data.tabs[tabIndex].title = document.getElementById(`tab-${tabIndex}-title`).value;
              generateTemplate();
@@ -308,29 +318,29 @@
             data.tabs[0].title = "Descrição";
             data.tabs[0].description = "Este é o local principal. Descreva o ambiente, a atmosfera e o nível de risco Jujutsu. Use quebras de linha para novos parágrafos.";
             data.tabs[0].cards = [
-                { title: "Nível de Risco", content: "Alto (Presença de Grau Especial)" }
+                { title: "Nível de Risco", content: "Alto (Presença de Grau Especial)", link: "" }
             ];
 
             // ABA 1: SUB-ÁREAS
             data.tabs[1].title = "Sub-áreas";
-            data.tabs[1].description = "Liste aqui as sub-áreas que compõem este local.";
+            data.tabs[1].description = ""; // Descrição removida
             data.tabs[1].cards = [
-                { title: "Prédio Principal", content: "Onde ocorrem as aulas teóricas.", link: "https://goldenagejjkrpg.forumeiros.com/u1" },
-                { title: "Dormitórios", content: "Alojamentos para os estudantes.", link: "https://goldenagejjkrpg.forumeiros.com/u1" }
+                { title: "Prédio Principal", content: "Onde ocorrem as aulas teóricas.", link: "" },
+                { title: "Dormitórios", content: "Alojamentos para os estudantes.", link: "" }
             ];
 
             // ABA 2: OBSERVAÇÃO
             data.tabs[2].title = "Observação";
-            data.tabs[2].description = "Use esta aba para NPCs fixos, Janelas, ou informações de alto sigilo.";
+            data.tabs[2].description = ""; // Descrição removida
             data.tabs[2].cards = [
-                 { title: "Satoru Gojo", content: "Professor do 1º Ano e o Feiticeiro mais forte." }
+                 { title: "Satoru Gojo", content: "Professor do 1º Ano e o Feiticeiro mais forte.", link: "" }
             ];
 
             // ABA 3: MISSÕES
             data.tabs[3].title = "Missões Atuais";
-            data.tabs[3].description = "As seguintes missões e atividades estão disponíveis para os feiticeiros:"; 
+            data.tabs[3].description = ""; // Descrição removida
             data.tabs[3].cards = [
-                 { title: "MISSÃO: O Som do Metrô", content: "Grau: Grau 2\nDetalhes: Três desaparecimentos na linha Ginza. Investigar os túneis e exorcizar a fonte." }
+                 { title: "MISSÃO: O Som do Metrô", content: "Grau: Grau 2\nDetalhes: Três desaparecimentos na linha Ginza. Investigar os túneis e exorcizar a fonte.", link: "" }
             ];
 
 
@@ -340,8 +350,11 @@
             // Adiciona listeners para os campos de Título e Descrição de todas as abas
             for(let i=0; i<4; i++){
                 document.getElementById(`tab-${i}-title`).addEventListener('input', () => updateTabTitle(i));
-                document.getElementById(`tab-${i}-description`).addEventListener('input', () => updateDescription(i));
             }
+
+            // Atualiza listeners para Descrição, que só existe na ABA 0
+            document.getElementById('tab-0-description').addEventListener('input', () => updateDescription(0));
+
 
             // Adiciona listeners aos botões das abas para que renderizem os inputs corretos
             document.querySelectorAll('#generator-tabs-container button[data-tab]').forEach((button, i) => {
@@ -398,27 +411,27 @@
                             <div id="tab-0-cards" class="space-y-3"></div>
                         </div>
 
-                        <!-- Conteúdo da Aba 2 (Sub-áreas) -->
+                        <!-- Conteúdo da Aba 2 (Sub-áreas) - SEM TEXTAREA -->
                         <div id="tab-1-content" data-tab-content class="space-y-4 hidden tab-content-container">
                             <h3 class="font-bold text-lg text-highlight">Configuração das Sub-áreas</h3>
                             <input type="text" id="tab-1-title" placeholder="Título da Aba (Padrão: Sub-áreas)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="updateTabTitle(1)">
-                            <textarea id="tab-1-description" rows="4" placeholder="Descrição Principal da Aba 2 (Use quebras de linha para novos parágrafos)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="updateDescription(1)"></textarea>
+                            <!-- <textarea> removida -->
                             <div id="tab-1-cards" class="space-y-3"></div>
                         </div>
 
-                        <!-- Conteúdo da Aba 3 (Observação) -->
+                        <!-- Conteúdo da Aba 3 (Observação) - SEM TEXTAREA -->
                         <div id="tab-2-content" data-tab-content class="space-y-4 hidden tab-content-container">
                             <h3 class="font-bold text-lg text-highlight">Configuração da Observação</h3>
                             <input type="text" id="tab-2-title" placeholder="Título da Aba (Padrão: Observação)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="updateTabTitle(2)">
-                            <textarea id="tab-2-description" rows="4" placeholder="Descrição Principal da Aba 3 (Use quebras de linha para novos parágrafos)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="updateDescription(2)"></textarea>
+                            <!-- <textarea> removida -->
                             <div id="tab-2-cards" class="space-y-3"></div>
                         </div>
 
-                        <!-- Conteúdo da Aba 4 (Missões Atuais) -->
+                        <!-- Conteúdo da Aba 4 (Missões Atuais) - SEM TEXTAREA -->
                         <div id="tab-3-content" data-tab-content class="space-y-4 hidden tab-content-container">
                             <h3 class="font-bold text-lg text-highlight">Configuração das Missões Atuais</h3>
                             <input type="text" id="tab-3-title" placeholder="Título da Aba (Padrão: Missões Atuais)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="updateTabTitle(3)">
-                            <textarea id="tab-3-description" rows="4" placeholder="Descrição Principal da Aba 4 (Use quebras de linha para novos parágrafos)" class="w-full p-2 bg-gray-800 border border-gray-600 rounded" oninput="updateDescription(3)"></textarea>
+                            <!-- <textarea> removida -->
                             <div id="tab-3-cards" class="space-y-3"></div>
                         </div>
                     </div>
